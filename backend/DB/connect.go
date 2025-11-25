@@ -18,9 +18,14 @@ func InitDB() {
 	var err error
 
 	// Load environment variables from .env file
-	err = godotenv.Load()
+	err = godotenv.Load(".env")
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Printf("Warning: Error loading .env file: %v", err)
+		log.Println("Attempting to load from parent directory...")
+		err = godotenv.Load("../.env")
+		if err != nil {
+			log.Fatal("Error loading .env file from both current and parent directory")
+		}
 	}
 
 	dbHost := os.Getenv("DB_HOST")
@@ -38,7 +43,6 @@ func InitDB() {
 		os.Exit(1)
 	}
 
-	// Auto Migrate the models
 	// Auto Migrate the models
 	err = DB.AutoMigrate(&models.User{}, &models.Poll{}, &models.Option{}, &models.Vote{})
 	if err != nil {

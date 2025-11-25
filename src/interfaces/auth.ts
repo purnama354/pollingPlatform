@@ -22,3 +22,11 @@ export interface AuthResponse {
   access_token: string
   refresh_token: string
 }
+
+export interface ErrorResponse {
+  error: string
+  details?: string
+}
+export interface LocationState {
+  message?: string
+}

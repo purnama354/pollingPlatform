@@ -13,57 +13,57 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 })
 
-export const authService = {
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>("/login", credentials)
-    localStorage.setItem("access_token", response.data.access_token)
-    localStorage.setItem("refresh_token", response.data.refresh_token)
-    return response.data
+// Add request interceptor to include auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("access_token")
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
   },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
 
-  async register(credentials: RegisterCredentials): Promise<void> {
-    await api.post("/register", credentials)
-  },
-
-  async refreshToken(): Promise<AuthResponse> {
-    const refreshToken = localStorage.getItem("refresh_token")
-    const response = await api.post<AuthResponse>("/refresh-token", {
-      refresh_token: refreshToken,
-    })
-    localStorage.setItem("access_token", response.data.access_token)
-    localStorage.setItem("refresh_token", response.data.refresh_token)
-    return response.data
-  },
-
-  async getMe(): Promise<User> {
-    const response = await api.get<{ user: User }>("/me")
-    return response.data.user
-  },
-
-  logout() {
-    localStorage.removeItem("access_token")
-    localStorage.removeItem("refresh_token")
-  },
-}
-
-// Add axios interceptors for token refresh
+// Add response interceptor for token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response.status === 401 && !originalRequest._retry) {
+    // If the error status is 401 and we haven't already tried to refresh the token
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
 
       try {
-        await authService.refreshToken()
-        const token = localStorage.getItem("access_token")
-        originalRequest.headers.Authorization = `Bearer ${token}`
+        const refreshToken = localStorage.getItem("refresh_token")
+        if (!refreshToken) {
+          throw new Error("No refresh token available")
+        }
+
+        // Try to refresh the token
+        const response = await api.post<AuthResponse>("/refresh-token", {
+          refresh_token: refreshToken,
+        })
+
+        // Store new tokens
+        localStorage.setItem("access_token", response.data.access_token)
+        localStorage.setItem("refresh_token", response.data.refresh_token)
+
+        // Update the original request with new token
+        originalRequest.headers.Authorization = `Bearer ${response.data.access_token}`
+
+        // Retry the original request
         return api(originalRequest)
       } catch (refreshError) {
-        authService.logout()
+        // If refresh fails, logout the user
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
         window.location.href = "/login"
         return Promise.reject(refreshError)
       }
@@ -72,3 +72,81 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+export const authService = {
+  async register(credentials: RegisterCredentials): Promise<void> {
+    try {
+      await api.post("/register", credentials)
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage =
+          error.response?.data?.error ||
+          error.response?.data?.details ||
+          "Registration failed"
+        throw new Error(errorMessage)
+      }
+      throw error
+    }
+  },
+
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      const response = await api.post<AuthResponse>("/login", credentials)
+      localStorage.setItem("access_token", response.data.access_token)
+      localStorage.setItem("refresh_token", response.data.refresh_token)
+      return response.data
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.error || "Login failed"
+        throw new Error(errorMessage)
+      }
+      throw error
+    }
+  },
+
+  async refreshToken(): Promise<AuthResponse> {
+    const refreshToken = localStorage.getItem("refresh_token")
+    if (!refreshToken) {
+      throw new Error("No refresh token available")
+    }
+
+    const response = await api.post<AuthResponse>("/refresh-token", {
+      refresh_token: refreshToken,
+    })
+
+    localStorage.setItem("access_token", response.data.access_token)
+    localStorage.setItem("refresh_token", response.data.refresh_token)
+    return response.data
+  },
+
+  async getMe(): Promise<User> {
+    try {
+      const response = await api.get<{ user: User }>("/me")
+      return response.data.user
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage =
+          error.response?.data?.error || "Failed to fetch user data"
+        throw new Error(errorMessage)
+      }
+      throw error
+    }
+  },
+
+  logout(): void {
+    localStorage.removeItem("access_token")
+    localStorage.removeItem("refresh_token")
+    // Optional: Clear any other stored user data
+    window.location.href = "/login"
+  },
+
+  isAuthenticated(): boolean {
+    return !!localStorage.getItem("access_token")
+  },
+
+  getToken(): string | null {
+    return localStorage.getItem("access_token")
+  },
+}
+
+export default api

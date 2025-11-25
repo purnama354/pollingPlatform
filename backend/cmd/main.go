@@ -7,6 +7,7 @@ import (
 	"pollingPlatform/repository"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -26,6 +27,16 @@ func main() {
 
 	// Initialize Gin
 	r := gin.Default()
+
+	// Configure CORS
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Add custom validator for future dates
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
@@ -51,11 +62,13 @@ func main() {
 		authenticated.Use(middleware.AuthMiddleware())
 		{
 			api.GET("/me", authHandler.GetMe)
+
 			polls := authenticated.Group("/polls")
 			{
 				polls.POST("/", pollHandler.CreatePoll)
 				polls.GET("/:id", pollHandler.GetPoll)
 				polls.GET("/", pollHandler.ListPolls)
+				polls.POST("/:id/vote", pollHandler.Vote)
 			}
 		}
 	}
