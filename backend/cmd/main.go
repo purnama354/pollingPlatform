@@ -28,11 +28,17 @@ func main() {
 	// Initialize Gin
 	r := gin.Default()
 
+	// Debug logging middleware
+	r.Use(func(c *gin.Context) {
+		println("Incoming request:", c.Request.Method, c.Request.URL.Path, "Origin:", c.Request.Header.Get("Origin"))
+		c.Next()
+	})
+
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://127.0.0.1:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -57,19 +63,19 @@ func main() {
 		api.POST("/login", authHandler.Login)
 		api.POST("/refresh-token", authHandler.RefreshToken)
 
+		// Public poll routes (no authentication required)
+		api.GET("/polls", pollHandler.ListPolls)
+		api.GET("/polls/:id", pollHandler.GetPoll)
+
 		// Protected routes
 		authenticated := api.Group("/")
 		authenticated.Use(middleware.AuthMiddleware())
 		{
-			api.GET("/me", authHandler.GetMe)
+			authenticated.GET("/me", authHandler.GetMe)
 
-			polls := authenticated.Group("/polls")
-			{
-				polls.POST("/", pollHandler.CreatePoll)
-				polls.GET("/:id", pollHandler.GetPoll)
-				polls.GET("/", pollHandler.ListPolls)
-				polls.POST("/:id/vote", pollHandler.Vote)
-			}
+			// Protected poll routes (authentication required)
+			authenticated.POST("/polls", pollHandler.CreatePoll)
+			authenticated.POST("/polls/:id/vote", pollHandler.Vote)
 		}
 	}
 
