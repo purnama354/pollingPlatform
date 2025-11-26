@@ -62,37 +62,26 @@ export function NavBar() {
             )}
           </button>
 
-          {/* User Menu */}
-          <div className="dropdown dropdown-end">
-            <div
-              tabIndex={0}
-              role="button"
-              className="btn btn-ghost btn-circle avatar placeholder"
+          {/* Logout Button */}
+          <button
+            onClick={logout}
+            className="btn btn-ghost btn-sm gap-2"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <div className="w-10 rounded-full bg-gradient-to-br from-primary to-secondary text-neutral-content">
-                <span className="text-lg font-bold">U</span>
-              </div>
-            </div>
-            <ul
-              tabIndex={0}
-              className="menu menu-sm dropdown-content glass-card mt-3 z-[1] p-2 shadow-xl w-52 rounded-box"
-            >
-              <li>
-                <a className="justify-between">
-                  Profile
-                  <span className="badge badge-sm badge-primary">New</span>
-                </a>
-              </li>
-              <li>
-                <a>Settings</a>
-              </li>
-              <li>
-                <button onClick={logout} className="text-error">
-                  Logout
-                </button>
-              </li>
-            </ul>
-          </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
+            </svg>
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       </div>
     </div>

@@ -35,9 +35,9 @@ type Option struct {
 
 type Vote struct {
 	gorm.Model
-	PollID   uint   `json:"pollId" binding:"required"`
-	OptionID uint   `json:"optionId" binding:"required"`
-	UserIP   string `json:"userIp" binding:"required,ip"`
+	PollID   uint `json:"pollId" binding:"required" gorm:"index:idx_user_poll,unique"`
+	OptionID uint `json:"optionId" binding:"required"`
+	UserID   uint `json:"userId" binding:"required" gorm:"index:idx_user_poll,unique"`
 }
 
 // ValidateUser validates user data before creation

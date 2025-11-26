@@ -73,9 +73,13 @@ func main() {
 		{
 			authenticated.GET("/me", authHandler.GetMe)
 
+			// Rate limiters
+			pollCreationLimiter := middleware.NewRateLimiter(10, time.Hour) // 10 polls per hour
+			voteLimiter := middleware.NewRateLimiter(100, time.Minute)      // 100 votes per minute
+
 			// Protected poll routes (authentication required)
-			authenticated.POST("/polls", pollHandler.CreatePoll)
-			authenticated.POST("/polls/:id/vote", pollHandler.Vote)
+			authenticated.POST("/polls", pollCreationLimiter.Middleware(), pollHandler.CreatePoll)
+			authenticated.POST("/polls/:id/vote", voteLimiter.Middleware(), pollHandler.Vote)
 		}
 	}
 

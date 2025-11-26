@@ -114,15 +114,33 @@ func (h *PollHandler) ListPolls(c *gin.Context) {
 	})
 }
 
-// Add to existing poll_handler.go
-
 func (h *PollHandler) Vote(c *gin.Context) {
+	// Get authenticated user ID from context (set by auth middleware)
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status": "error",
+			"error":  "User not authenticated",
+		})
+		return
+	}
+
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error",
+			"error":  "Invalid user ID format",
+		})
+		return
+	}
+
 	var vote struct {
-		OptionID uint `json:"optionId" binding:"required"`
+		OptionIndex int `json:"option_index" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&vote); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
 			"error":   "Invalid request format",
 			"details": err.Error(),
 		})
@@ -131,57 +149,72 @@ func (h *PollHandler) Vote(c *gin.Context) {
 
 	pollID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid poll ID"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "Invalid poll ID",
+		})
 		return
 	}
-
-	// Get user IP for rate limiting
-	userIP := c.ClientIP()
 
 	// Check if poll exists and is active
 	poll, err := h.repo.GetPollByID(uint(pollID))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Poll not found"})
+		c.JSON(http.StatusNotFound, gin.H{
+			"status": "error",
+			"error":  "Poll not found",
+		})
 		return
 	}
 
 	if !poll.IsActive() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Poll has ended"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "Poll has ended",
+		})
 		return
 	}
 
-	// Validate option belongs to poll
-	validOption := false
-	for _, option := range poll.Options {
-		if option.ID == vote.OptionID {
-			validOption = true
-			break
-		}
-	}
-	if !validOption {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid option ID"})
+	// Validate option index
+	if vote.OptionIndex < 0 || vote.OptionIndex >= len(poll.Options) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  "Invalid option index",
+		})
 		return
 	}
+
+	optionID := poll.Options[vote.OptionIndex].ID
 
 	// Check if user has already voted
-	hasVoted, err := h.repo.HasUserVoted(uint(pollID), userIP)
+	hasVoted, err := h.repo.HasUserVoted(uint(pollID), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check voting status"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error",
+			"error":  "Failed to check voting status",
+		})
 		return
 	}
 	if hasVoted {
-		c.JSON(http.StatusConflict, gin.H{"error": "You have already voted on this poll"})
+		c.JSON(http.StatusConflict, gin.H{
+			"status": "error",
+			"error":  "You have already voted on this poll",
+		})
 		return
 	}
 
-	// Record vote
-	err = h.repo.RecordVote(uint(pollID), vote.OptionID, userIP)
+	// Record vote with user ID
+	err = h.repo.RecordVote(uint(pollID), optionID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record vote"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"error":   "Failed to record vote",
+			"details": err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
 		"message": "Vote recorded successfully",
 	})
 }

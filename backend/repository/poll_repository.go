@@ -55,21 +55,21 @@ func (r *PollRepository) ListPolls(offset, limit int, status string) ([]models.P
 	return polls, total, err
 }
 
-func (r *PollRepository) HasUserVoted(pollID uint, userIP string) (bool, error) {
+func (r *PollRepository) HasUserVoted(pollID uint, userID uint) (bool, error) {
 	var count int64
 	err := r.db.Model(&models.Vote{}).
-		Where("poll_id = ? AND user_ip = ?", pollID, userIP).
+		Where("poll_id = ? AND user_id = ?", pollID, userID).
 		Count(&count).Error
 	return count > 0, err
 }
 
-func (r *PollRepository) RecordVote(pollID uint, optionID uint, userIP string) error {
+func (r *PollRepository) RecordVote(pollID uint, optionID uint, userID uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 
 		vote := models.Vote{
 			PollID:   pollID,
 			OptionID: optionID,
-			UserIP:   userIP,
+			UserID:   userID,
 		}
 		if err := tx.Create(&vote).Error; err != nil {
 			return err

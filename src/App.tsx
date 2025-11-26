@@ -1,4 +1,4 @@
-import { BrowserRouter as Router } from "react-router-dom"
+import { BrowserRouter as Router, useLocation } from "react-router-dom"
 import { AppRoutes } from "./App.Routes"
 import { NavBar } from "./component/NavBar"
 import { AuthProvider } from "./store/AuthContext"
@@ -7,11 +7,16 @@ import { useAuth } from "./hooks/useAuth"
 
 function AppContent() {
   const { isAuthenticated } = useAuth()
+  const location = useLocation()
+
+  // Hide navbar on public pages
+  const publicRoutes = ['/', '/login', '/register']
+  const showNavbar = isAuthenticated || !publicRoutes.includes(location.pathname)
 
   return (
     <div className="min-h-screen bg-base-200">
       {isAuthenticated && <NavBar />}
-      <main className="container mx-auto py-4">
+      <main className={isAuthenticated ? "container mx-auto py-4" : ""}>
         <AppRoutes />
       </main>
     </div>
