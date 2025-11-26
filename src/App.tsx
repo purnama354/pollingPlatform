@@ -2,6 +2,7 @@ import { BrowserRouter as Router } from "react-router-dom"
 import { AppRoutes } from "./App.Routes"
 import { NavBar } from "./component/NavBar"
 import { AuthProvider } from "./store/AuthContext"
+import { ThemeProvider } from "./context/ThemeContext"
 import { useAuth } from "./hooks/useAuth"
 
 function AppContent() {
@@ -19,11 +20,13 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

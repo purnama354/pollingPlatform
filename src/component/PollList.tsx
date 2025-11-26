@@ -2,6 +2,9 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { Poll } from "../interfaces/poll"
 import api from "../services/api"
+import { Badge } from "../components/ui/Badge"
+import { LoadingState } from "../components/LoadingState"
+import { EmptyState } from "../components/EmptyState"
 
 export function PollList() {
   const [polls, setPolls] = useState<Poll[]>([])
@@ -20,6 +23,7 @@ export function PollList() {
         )
         setPolls(response.data.polls)
         setTotalPages(response.data.pagination.total_pages)
+        setError("")
       } catch (err) {
         setError("Failed to load polls")
         console.error(err)
@@ -41,91 +45,234 @@ export function PollList() {
     })
   }
 
+  const isPollActive = (endDate: string) => {
+    return new Date(endDate) > new Date()
+  }
+
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (error) {
     return (
-      <div className="alert alert-error">
+      <div className="alert alert-error shadow-lg animate-slide-up">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="stroke-current shrink-0 h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
         <span>{error}</span>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Polls</h1>
-        <Link to="/polls/create" className="btn btn-primary">
-          Create New Poll
+    <div className="container mx-auto p-4 space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Discover Polls
+          </h1>
+          <p className="text-base-content/70 mt-1">
+            Vote on trending polls or create your own
+          </p>
+        </div>
+        <Link
+          to="/polls/create"
+          className="btn btn-gradient btn-lg gap-2 shadow-lg"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+          Create Poll
         </Link>
       </div>
 
-      <div className="mb-4">
-        <select
-          className="select select-bordered w-full max-w-xs"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          <option value="all">All Polls</option>
-          <option value="active">Active Polls</option>
-          <option value="ended">Ended Polls</option>
-        </select>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {polls.map((poll) => (
-          <div key={poll.id} className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h2 className="card-title">{poll.title}</h2>
-              <p className="text-sm text-gray-600">
-                Ends: {formatDate(poll.endDate)}
-              </p>
-              <p className="line-clamp-2">{poll.description}</p>
-              <div className="card-actions justify-end mt-4">
-                <Link
-                  to={`/polls/${poll.id}`}
-                  className="btn btn-primary btn-sm"
-                >
-                  View Poll
-                </Link>
-              </div>
-            </div>
-          </div>
+      {/* Filter */}
+      <div className="flex gap-2 flex-wrap">
+        {["all", "active", "ended"].map((status) => (
+          <button
+            key={status}
+            onClick={() => {
+              setFilter(status)
+              setPage(1)
+            }}
+            className={`btn btn-sm ${filter === status
+                ? "btn-primary"
+                : "btn-ghost hover:bg-primary/10"
+              } capitalize`}
+          >
+            {status}
+          </button>
         ))}
       </div>
 
-      {polls.length === 0 && (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No polls found</p>
-        </div>
-      )}
+      {/* Polls Grid */}
+      {polls.length === 0 ? (
+        <EmptyState
+          icon="📊"
+          title="No polls found"
+          description="Be the first to create a poll and start gathering opinions from the community!"
+          actionLabel="Create First Poll"
+          actionLink="/polls/create"
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {polls.map((poll, index) => {
+              const isActive = isPollActive(poll.endDate)
+              return (
+                <div
+                  key={poll.id}
+                  className="glass-card rounded-2xl p-6 hover:shadow-2xl hover:scale-105 transition-all duration-300 animate-slide-up flex flex-col"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  {/* Status Badge */}
+                  <div className="flex justify-between items-start mb-4">
+                    <Badge variant={isActive ? "success" : "error"} size="sm">
+                      {isActive ? "🟢 Active" : "🔴 Ended"}
+                    </Badge>
+                  </div>
 
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <button
-            className="btn btn-sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            Previous
-          </button>
-          <span className="flex items-center px-4">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            className="btn btn-sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Next
-          </button>
-        </div>
+                  {/* Poll Title */}
+                  <h2 className="text-xl font-bold text-base-content mb-3 line-clamp-2 flex-grow">
+                    {poll.title}
+                  </h2>
+
+                  {/* Description */}
+                  <p className="text-base-content/70 text-sm mb-4 line-clamp-2">
+                    {poll.description}
+                  </p>
+
+                  {/* Meta Info */}
+                  <div className="space-y-2 text-xs text-base-content/60 mb-4">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>Ends: {formatDate(poll.endDate)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                      <span>{poll.options?.length || 0} options</span>
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <Link
+                    to={`/polls/${poll.id}`}
+                    className="btn btn-primary btn-sm w-full group"
+                  >
+                    <span>View Poll</span>
+                    <svg
+                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                      />
+                    </svg>
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center gap-2 mt-8">
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+                Previous
+              </button>
+              <span className="flex items-center px-4 font-medium">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
